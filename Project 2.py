@@ -1,5 +1,11 @@
-#from z3 import Solver, Int, Or, And, Not
 from z3 import *
+
+import functools
+
+
+def MySum(lst):
+    return functools.reduce(lambda a, b: a + b, lst, 0)
+
 
 def read_graph(file_path):
     with open(file_path, 'r') as file:
@@ -20,50 +26,41 @@ def read_graph(file_path):
     return vertices, edges, affinity_edges
 
 
-# 9x9 matrix of integer variables
-X = [ [ Int("x_%s_%s" % (i+1, j+1)) for j in range(9) ]
-      for i in range(9) ]
+def main(V, E, A, k1, k2):
+    vertices = len(V)
+    X = [Int("x_%s" % i) for i in range(vertices)]
+    Y = [Int("y_%s" % i) for i in range(len(A))]
+    coloring = [And(0 <= X[i], X[i] < k1) for i in range(vertices)]
+    adjacent = [Distinct(X[i-1], X[j-1]) for i, j in E]
+    affinity = [(Y[i] == (X[A[i][0]-1] == X[A[i][1]-1])) for i in range(len(A))]
+    s = Solver()
+    s.add(coloring + adjacent + affinity)
+    s.add(MySum(Y) >= k2)
 
-# each cell contains a value in {1, ..., 9}
-cells_c  = [ And(1 <= X[i][j], X[i][j] <= 9)
-             for i in range(9) for j in range(9) ]
+    if s.check() == sat:
+        m = s.model()
+        r = [m.evaluate(X[i]) for i in range(vertices)]
+        #p = [m.evaluate(Y[i]) for i in range(len(A))]
+        #for i, j in E:
+        #    print("Nodes: ", i, j, "Colors: ", r[i-1], r[j-1])
+        #print(r)
+        #print(p)
 
-# each row contains a digit at most once
-rows_c   = [ Distinct(X[i]) for i in range(9) ]
+        file = open(r"output.txt", "w+")
+        file.write("Yes")
+        file.write("\n")
+        for i in range(len(r)):
+            file.write(str(r[i]))
+            file.write("\n")
+        file.close()
+    else:
+        file = open(r"output.txt", "w+")
+        file.write("No")
+        file.close()
+        #print("failed to solve")
 
-# each column contains a digit at most once
-cols_c   = [ Distinct([ X[i][j] for i in range(9) ])
-             for j in range(9) ]
+    return
 
-# each 3x3 square contains a digit at most once
-sq_c     = [ Distinct([ X[3*i0 + i][3*j0 + j]
-                        for i in range(3) for j in range(3) ])
-             for i0 in range(3) for j0 in range(3) ]
-
-sudoku_c = cells_c + rows_c + cols_c + sq_c
-
-# sudoku instance, we use '0' for empty cells
-instance = ((0,0,0,0,9,4,0,3,0),
-            (0,0,0,5,1,0,0,0,7),
-            (0,8,9,0,0,0,0,4,0),
-            (0,0,0,0,0,0,2,0,8),
-            (0,6,0,2,0,1,0,5,0),
-            (1,0,2,0,0,0,0,0,0),
-            (0,7,0,0,0,0,5,2,0),
-            (9,0,0,0,6,5,0,0,0),
-            (0,4,0,9,7,0,0,0,0))
-
-instance_c = [ If(instance[i][j] == 0,
-                  True,
-                  X[i][j] == instance[i][j])
-               for i in range(9) for j in range(9) ]
-
-s = Solver()
-s.add(sudoku_c + instance_c)
-if s.check() == sat:
-    m = s.model()
-    r = [ [ m.evaluate(X[i][j]) for j in range(9) ]
-          for i in range(9) ]
-    print_matrix(r)
-else:
-    print ("failed to solve")
+file_path = ("Sample Inputs/sample_1.txt")
+V, E, A = read_graph(file_path)
+main(V, E, A, 12, 1)
